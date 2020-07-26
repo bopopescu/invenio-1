@@ -164,7 +164,7 @@ def close_connection(dbhost=CFG_DATABASE_HOST):
     except KeyError:
         pass
 
-def run_sql(sql, param=None, n=0, with_desc=False, with_dict=False, run_on_slave=False):
+def run_sql(sql, param=None, n=0, with_desc=False, with_dict=False, run_on_subordinate=False):
     """Run SQL on the server with PARAM and return result.
     @param param: tuple of string params to insert in the query (see
     notes below)
@@ -200,7 +200,7 @@ def run_sql(sql, param=None, n=0, with_desc=False, with_dict=False, run_on_slave
         param = tuple(param)
 
     dbhost = CFG_DATABASE_HOST
-    if run_on_slave and CFG_DATABASE_SLAVE:
+    if run_on_subordinate and CFG_DATABASE_SLAVE:
         dbhost = CFG_DATABASE_SLAVE
 
     ### log_sql_query(dbhost, sql, param) ### UNCOMMENT ONLY IF you REALLY want to log all queries
@@ -247,7 +247,7 @@ def run_sql(sql, param=None, n=0, with_desc=False, with_dict=False, run_on_slave
             rc = cur.lastrowid
         return rc
 
-def run_sql_many(query, params, limit=CFG_MISCUTIL_SQL_RUN_SQL_MANY_LIMIT, run_on_slave=False):
+def run_sql_many(query, params, limit=CFG_MISCUTIL_SQL_RUN_SQL_MANY_LIMIT, run_on_subordinate=False):
     """Run SQL on the server with PARAM.
     This method does executemany and is therefore more efficient than execute
     but it has sense only with queries that affect state of a database
@@ -262,7 +262,7 @@ def run_sql_many(query, params, limit=CFG_MISCUTIL_SQL_RUN_SQL_MANY_LIMIT, run_o
     @return: SQL result as provided by database
     """
     dbhost = CFG_DATABASE_HOST
-    if run_on_slave and CFG_DATABASE_SLAVE:
+    if run_on_subordinate and CFG_DATABASE_SLAVE:
         dbhost = CFG_DATABASE_SLAVE
     i = 0
     r = None
@@ -291,7 +291,7 @@ def run_sql_many(query, params, limit=CFG_MISCUTIL_SQL_RUN_SQL_MANY_LIMIT, run_o
         i += limit
     return r
 
-def run_sql_with_limit(query, param=None, n=0, with_desc=False, wildcard_limit=0, run_on_slave=False):
+def run_sql_with_limit(query, param=None, n=0, with_desc=False, wildcard_limit=0, run_on_subordinate=False):
     """This function should be used in some cases, instead of run_sql function, in order
         to protect the db from queries that might take a log time to respond
         Ex: search queries like [a-z]+ ; cern*; a->z;
@@ -303,9 +303,9 @@ def run_sql_with_limit(query, param=None, n=0, with_desc=False, wildcard_limit=0
     except ValueError:
         raise
     if wildcard_limit < 1:#no limit on the wildcard queries
-        return run_sql(query, param, n, with_desc, run_on_slave=run_on_slave)
+        return run_sql(query, param, n, with_desc, run_on_subordinate=run_on_subordinate)
     safe_query = query + " limit %s" %wildcard_limit
-    res = run_sql(safe_query, param, n, with_desc, run_on_slave=run_on_slave)
+    res = run_sql(safe_query, param, n, with_desc, run_on_subordinate=run_on_subordinate)
     if len(res) == wildcard_limit:
         raise InvenioDbQueryWildcardLimitError(res)
     return res
@@ -346,7 +346,7 @@ def log_sql_query(dbhost, sql, param=None):
     except:
         pass
 
-def get_table_update_time(tablename, run_on_slave=False):
+def get_table_update_time(tablename, run_on_subordinate=False):
     """Return update time of TABLENAME.  TABLENAME can contain
        wildcard `%' in which case we return the maximum update time
        value.
@@ -361,7 +361,7 @@ def get_table_update_time(tablename, run_on_slave=False):
     # SELECT UPDATE_TIME FROM INFORMATION_SCHEMA.TABLES WHERE
     # table_name='collection'.
     res = run_sql("SHOW TABLE STATUS LIKE %s", (tablename,),
-                  run_on_slave=run_on_slave)
+                  run_on_subordinate=run_on_subordinate)
     update_times = [] # store all update times
     for row in res:
         if type(row[10]) is long or \
@@ -376,14 +376,14 @@ def get_table_update_time(tablename, run_on_slave=False):
             update_times.append(str(row[11]))
     return max(update_times)
 
-def get_table_status_info(tablename, run_on_slave=False):
+def get_table_status_info(tablename, run_on_subordinate=False):
     """Return table status information on TABLENAME.  Returned is a
        dict with keys like Name, Rows, Data_length, Max_data_length,
        etc.  If TABLENAME does not exist, return empty dict.
     """
     # Note: again a hack so that it works on all MySQL 4.0, 4.1, 5.0
     res = run_sql("SHOW TABLE STATUS LIKE %s", (tablename,),
-                  run_on_slave=run_on_slave)
+                  run_on_subordinate=run_on_subordinate)
     table_status_info = {} # store all update times
     for row in res:
         if type(row[10]) is long or \
@@ -432,7 +432,7 @@ def wash_table_column_name(colname):
         raise Exception('The table column %s is not valid.' % repr(colname))
     return colname
 
-def real_escape_string(unescaped_string, run_on_slave=False):
+def real_escape_string(unescaped_string, run_on_subordinate=False):
     """
     Escapes special characters in the unescaped string for use in a DB query.
 
@@ -443,7 +443,7 @@ def real_escape_string(unescaped_string, run_on_slave=False):
     @rtype: str
     """
     dbhost = CFG_DATABASE_HOST
-    if run_on_slave and CFG_DATABASE_SLAVE:
+    if run_on_subordinate and CFG_DATABASE_SLAVE:
         dbhost = CFG_DATABASE_SLAVE
     connection_object = _db_login(dbhost)
     escaped_string = connection_object.escape_string(unescaped_string)
